@@ -1,0 +1,243 @@
+import streamlit as st
+import mysql.connector
+import pandas as pd
+
+# Styling
+background_image = """
+<style>
+[data-testid="stAppViewContainer"]
+{
+  height: 80vh;
+  background-image: url(https://upload.wikimedia.org/wikipedia/en/a/a6/Central-Michigan-University-seal.svg);
+  background-size: contain; 
+  background-repeat: no-repeat;
+  position: relative;
+  top: 100px;
+}
+</style>
+"""
+background_image1 = """
+<style>
+[data-testid="stAppViewContainer"]
+{
+  height: 80vh;
+  background-image: url(https://www.cmich.edu/images/default-source/presidents-division/university-communications/cmich_maroongolda768d2a6-0870-47a8-941f-10df9b7c05b1.jpg);
+  background-size: contain; 
+  background-repeat: no-repeat;
+  position: relative;
+  top: 100px;
+}
+</style>
+"""
+st.markdown("""
+    <style>
+    div.stButton > button:first-child {
+        background-color: maroon;
+        color: gold;
+        position: relative;
+        left: 800px
+    }
+    div.stButton > button:hover {
+        background-color: gold;
+        color: gold
+    </style>""", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+    div.stTextInput {
+        background-color: white;
+        color: black;
+        width: 400px !important;
+        position: relative;
+        left: 500px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+st.markdown("""
+    <style>
+    div.stDateInput {
+        background-color: white;
+        color: black;
+        width: 400px !important;
+        position: relative;
+        left: 400px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+st.markdown("""
+    <style>
+    div.stDataFrame {
+        width: 400px !important;
+        position: relative;
+        left: 200px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+def connect_to_database():
+    try:
+        conn = mysql.connector.connect(
+            host="141.209.241.91",
+            user="sp2024bis698g4",
+            password="warm",  
+            database="sp2024bis698g4s"
+        )
+        return conn
+    except mysql.connector.Error as e:
+        st.error(f"Error connecting to the database: {e}")
+        return None
+
+def create_cursor(conn):
+    try:
+        cursor = conn.cursor(buffered=True)
+        return cursor
+    except mysql.connector.Error as e:
+        st.error(f"Error creating cursor: {e}")
+        return None
+
+
+def fetch_employee_data(conn):
+    try:
+        cursor = conn.cursor()
+
+        query = """
+            select * from Employee; 
+        """
+        cursor.execute(query)
+        rows = cursor.fetchall()
+        return rows
+    finally:
+        if cursor is not None:
+            cursor.close()
+
+def delete_employee_data(conn, employee_id):
+    cursor = None
+    try:
+        if conn.is_connected():
+            cursor = create_cursor(conn)
+            if cursor:
+                cursor.execute("DELETE FROM Employee WHERE EmployeeID = %s", (employee_id,))
+                conn.commit()
+                st.success("Entry deleted successfully.")
+    except mysql.connector.Error as e:
+        st.error(f"Error deleting data: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+
+
+
+
+def display_ui():
+    if not st.session_state.get("logged_in", False):
+        if st.button("Home"):
+            display_home()
+        if st.button("Login"):
+            st.session_state["show_login_form"] = True
+        if st.session_state.get("show_login_form", False):
+            display_login_form()
+    else:
+        st.markdown(background_image1, unsafe_allow_html=True)
+        main()
+        if st.button("Add Entry"):
+            st.session_state["add_Employee"] = True
+        if st.button("Delete Entry"):
+            st.session_state["delete_entry_clicked"] = True
+        
+        if st.session_state.get("add_Employee", False):
+            employee_id = st.text_input("Employee ID:", value=st.session_state.get("employee_id", ""))
+            first_name = st.text_input("First Name:", value=st.session_state.get("first_name", ""))
+            last_name = st.text_input("Last Name:", value=st.session_state.get("last_name", ""))
+            hire_date = st.date_input("Date Hired", value=st.session_state.get("hire_date", None))
+            if st.button("Submit"):
+                conn = connect_to_database()
+                if conn:
+                    store_employee_data(conn, employee_id, first_name, last_name, hire_date)
+                    conn.close()
+                st.session_state["add_Employee"] = False
+                st.experimental_rerun()
+
+        if st.session_state.get("delete_entry_clicked", False):
+            employee_id_to_delete = st.text_input("Enter Employee ID to delete:")
+            if st.button("Delete"):
+                conn = connect_to_database()
+                if conn:
+                    delete_employee_data(conn, employee_id_to_delete)
+                    conn.close()
+                st.session_state["delete_entry_clicked"] = False
+                st.experimental_rerun()
+
+
+
+
+def display_home():
+    st.markdown(background_image, unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 30px; color: maroon; text-align: justify;position: relative; left: 350px'>Welcome to CMU Merrill Dining.</p>", unsafe_allow_html=True)
+    st.markdown("""
+        <p style='font-size: 20px; color: maroon;text-align: center;position: relative; left: 200px'>
+        Central Michigan University's Merrill Dining offers students a diverse and satisfying dining experience right on campus. Situated at the heart of the university, Merrill Dining provides a convenient and welcoming environment where students can enjoy delicious meals, socialize with peers, and refuel between classes.
+        Merrill Dining boasts a modern and spacious facility, designed to accommodate the needs of a bustling student population. With ample seating and contemporary decor, the dining hall creates a comfortable atmosphere where students can relax and unwind while enjoying their meals.
+        </p>
+        """, unsafe_allow_html=True)
+
+def display_login_form():
+    st.markdown(background_image, unsafe_allow_html=True)
+    st.markdown("<p style='font-size: 50px; color: maroon; text-align: Justify;position: relative; left:550px'>Login Section</p>", unsafe_allow_html=True)
+    username = st.text_input("user Id")
+    password = st.text_input("Password", type="password")
+    if st.button("Submit"):
+        if username == "manager" and password == "password":
+            st.session_state["logged_in"] = True
+            st.success("Login Successfull")
+        else:
+            st.error("Invalid username or password.")
+def logout():
+    st.session_state["logged_in"] = False
+
+def store_employee_data(conn, employee_id, first_name, last_name, hire_date):
+    cursor = None
+    try:
+        if conn.is_connected():
+            cursor = create_cursor(conn)
+            if cursor:
+                cursor.execute("INSERT INTO Employee (EmployeeID, FirstName, LastName, HireDate) VALUES (%s, %s, %s, %s)", (employee_id, first_name, last_name, hire_date))
+                conn.commit()
+                cursor.fetchall()
+                for _ in cursor:
+                    pass    
+                st.success("Entry Added successfully.")
+                display_employee_details(conn, employee_id)
+    except mysql.connector.Error as e:
+        st.error(f"Error storing data: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+
+
+
+
+def display_employee_details(conn, employee_id):
+    rows = fetch_employee_data(conn, employee_id=employee_id)
+    if rows:
+        df = pd.DataFrame(rows, columns=["Employee ID", "First Name", "Last Name", "Hire Date"])
+        df.set_index("First Name", inplace=True)
+        st.markdown("<p style='font-size: 50px; color: maroon; text-align: center;'>Employee Details</p>", unsafe_allow_html=True)
+        st.dataframe(df)
+
+def main():
+    conn = connect_to_database()
+    if conn:
+        rows = fetch_employee_data(conn)
+        if rows:
+            df = pd.DataFrame(rows, columns=["Employee ID","First Name", "Last Name","Hire Date"])
+            df.set_index("Employee ID", inplace=True)
+            st.markdown("<p style='font-size: 50px; color: maroon; text-align: center;'>welcome to the Dashboard</p>", unsafe_allow_html=True)
+            st.dataframe(df)
+        conn.close()
+
+display_ui()
+
+if st.session_state.get("logged_in", False):
+    if st.button("Logout"):
+        logout()
+
